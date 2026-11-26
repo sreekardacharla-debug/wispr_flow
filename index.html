@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0D3B38" />
+<title>VaidehaVoice — वैदेहा वॉइस</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0D3B38;
+    --surface: #1A5C56;
+    --accent: #F4A261;
+    --text-primary: #F5F0E8;
+    --text-secondary: #A8C5C2;
+    --emergency: #E63946;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Noto Sans Devanagari', system-ui, sans-serif;
+    font-size: 18px;
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    padding: 20px 16px 6px;
+  }
+  header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+  }
+  header .devanagari {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  /* ---------- Patient label ---------- */
+  #patientLabel {
+    margin-top: 10px;
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 18px;
+    border-radius: 20px;
+    background: rgba(244, 162, 97, 0.08);
+    border: 1px solid rgba(244, 162, 97, 0.25);
+    transition: background 0.2s;
+    text-align: center;
+    max-width: 90%;
+  }
+  #patientLabel:active { background: rgba(244, 162, 97, 0.2); }
+
+  /* ---------- Mic button ---------- */
+  #micWrap {
+    position: relative;
+    margin: 34px 0 22px;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #glow {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(244,162,97,0.28) 0%, rgba(244,162,97,0) 70%);
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #micBtn {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #0D3B38;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35), 0 0 0 0 rgba(244,162,97,0.5);
+    transition: transform 0.15s, background 0.3s, box-shadow 0.3s;
+    z-index: 2;
+  }
+  #micBtn:active { transform: scale(0.95); }
+  #micBtn svg { width: 46px; height: 46px; }
+
+  /* Listening: pulsing rings */
+  .ring {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+  body.state-listening .ring { animation: pulseRing 1.6s ease-out infinite; }
+  body.state-listening .ring.r2 { animation-delay: 0.8s; }
+  @keyframes pulseRing {
+    0%   { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  body.state-listening #micBtn {
+    animation: breathe 1.6s ease-in-out infinite;
+    box-shadow: 0 0 30px rgba(244,162,97,0.6);
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+  }
+
+  /* Processing: rotating arc */
+  #arc {
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: rgba(244,162,97,0.4);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 3;
+  }
+  body.state-processing #arc { opacity: 1; animation: spin 0.9s linear infinite; }
+  body.state-processing #micBtn { background: var(--surface); color: var(--accent); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Speaking: sound wave bars overlay */
+  #wave {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 4;
+    pointer-events: none;
+  }
+  #wave span {
+    display: block;
+    width: 6px;
+    height: 20px;
+    background: var(--text-primary);
+    border-radius: 3px;
+    animation: waveBar 0.8s ease-in-out infinite;
+  }
+  #wave span:nth-child(2) { animation-delay: 0.15s; }
+  #wave span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes waveBar {
+    0%, 100% { transform: scaleY(0.5); }
+    50% { transform: scaleY(1.6); }
+  }
+  body.state-speaking #wave { display: flex; }
+  body.state-speaking #micBtn { background: var(--surface); color: var(--accent); }
+  body.state-speaking #micBtn svg { opacity: 0.15; }
+
+  /* Emergency state */
+  body.state-emergency #micBtn {
+    background: var(--emergency);
+    animation: flashRed 0.6s ease-in-out infinite;
+  }
+  @keyframes flashRed {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.7); }
+    50% { box-shadow: 0 0 40px 12px rgba(230,57,70,0.5); }
+  }
+
+  /* ---------- Status / last spoken line ---------- */
+  #lastSpoken {
+    max-width: 340px;
+    text-align: center;
+    font-size: 18px;
+    color: var(--text-primary);
+    min-height: 56px;
+    padding: 0 16px;
+    font-style: italic;
+  }
+
+  /* ---------- Emergency banner ---------- */
+  #emergencyBanner {
+    display: none;
+    width: calc(100% - 32px);
+    max-width: 380px;
+    margin: 10px auto;
+    background: var(--emergency);
+    border-radius: 14px;
+    padding: 14px 18px;
+    text-align: center;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(230,57,70,0.4);
+  }
+  #emergencyBanner a.callbtn {
+    display: inline-block;
+    margin-top: 8px;
+    background: #fff;
+    color: var(--emergency);
+    text-decoration: none;
+    font-weight: 700;
+    padding: 8px 26px;
+    border-radius: 24px;
+    font-size: 18px;
+  }
+
+  /* ---------- Conversation log ---------- */
+  #logWrap {
+    width: 100%;
+    max-width: 420px;
+    padding: 14px 16px 0;
+    flex: 1;
+  }
+  #logWrap hr { border: none; border-top: 1px solid rgba(168,197,194,0.25); margin-bottom: 12px; }
+  .logEntry { margin-bottom: 10px; font-size: 15px; line-height: 1.55; word-break: break-word; }
+  .logEntry.user { color: var(--text-secondary); }
+  .logEntry.user::before { content: "👤 "; }
+  .logEntry.ai { color: var(--text-primary); }
+  .logEntry.ai::before { content: "🎙️ "; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    padding: 12px 16px 26px;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  /* ---------- End session X ---------- */
+  #endSession {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid rgba(168,197,194,0.4);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+  }
+  body.session-active #endSession { display: flex; }
+
+  /* ---------- Text fallback input ---------- */
+  #textFallback {
+    display: none;
+    width: calc(100% - 32px);
+    max-width: 380px;
+    margin-top: 12px;
+    gap: 8px;
+  }
+  #textFallback input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid rgba(168,197,194,0.35);
+    border-radius: 12px;
+    color: var(--text-primary);
+    padding: 12px 14px;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+  }
+  #textFallback button {
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 0 18px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0D3B38;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ---------- Overlays (API key / patient picker) ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 28, 26, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .card {
+    background: var(--surface);
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .card h2 { font-size: 20px; margin-bottom: 10px; color: var(--accent); }
+  .card p { font-size: 15px; color: var(--text-secondary); margin-bottom: 14px; }
+  .card input[type="password"], .card input[type="text"] {
+    width: 100%;
+    background: rgba(13,59,56,0.7);
+    border: 1px solid rgba(168,197,194,0.35);
+    border-radius: 10px;
+    color: var(--text-primary);
+    padding: 12px 14px;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .card .primary {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0D3B38;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .card .secondary {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(168,197,194,0.4);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-top: 10px;
+    font-family: inherit;
+  }
+  .patientChip {
+    display: inline-block;
+    background: rgba(244,162,97,0.12);
+    border: 1px solid rgba(244,162,97,0.4);
+    color: var(--text-primary);
+    border-radius: 20px;
+    padding: 8px 18px;
+    margin: 5px 4px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #keyHint { font-size: 13px; }
+</style>
+</head>
+<body class="state-idle">
+
+  <button id="endSession" title="Session samapt karein" aria-label="End session">✕</button>
+
+  <header>
+    <h1>VaidehaVoice 🎙️</h1>
+    <div class="devanagari">वैदेहा वॉइस</div>
+  </header>
+
+  <div id="patientLabel" role="button" tabindex="0">Kisi ke baare mein baat karein</div>
+
+  <div id="micWrap">
+    <div id="glow"></div>
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div id="arc"></div>
+    <button id="micBtn" aria-label="Mic — dabayein aur boliye">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z"/>
+        <path d="M18 11a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.92V19H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-2.08A6 6 0 0 0 18 11z"/>
+      </svg>
+    </button>
+    <div id="wave"><span></span><span></span><span></span></div>
+  </div>
+
+  <div id="emergencyBanner">
+    ⚠️ Yeh emergency hai. Abhi 108 par call karein.
+    <br/><a class="callbtn" href="tel:108">📞 108 par call karein</a>
+  </div>
+
+  <div id="lastSpoken"></div>
+
+  <div id="textFallback">
+    <input type="text" id="textInput" placeholder="Yahan likhein (mic uplabdh nahi)" autocomplete="off" />
+    <button id="textSend">Bhejein</button>
+  </div>
+
+  <div id="logWrap">
+    <hr/>
+    <div id="log"></div>
+  </div>
+
+  <footer id="footerInfo">Pichli baat: —</footer>
+
+  <!-- API Key setup overlay -->
+  <div class="overlay" id="keyOverlay">
+    <div class="card">
+      <h2>Pehli baar — API Key</h2>
+      <p>VaidehaVoice ko aapki Claude API key chahiye. Yeh sirf aapke browser (localStorage) mein save hoti hai — kahin bheji nahi jaati.</p>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+      <button class="primary" id="apiKeySave">Save karein</button>
+      <p id="keyHint">console.anthropic.com se apni key lein. Aapki key sirf aapke device par rehti hai.</p>
+    </div>
+  </div>
+
+  <!-- Patient picker overlay -->
+  <div class="overlay" id="patientOverlay">
+    <div class="card">
+      <h2>Kis ke baare mein?</h2>
+      <p>Apne patient ko chuniye, ya mic se naam boliye.</p>
+      <div id="patientChips"></div>
+      <button class="secondary" id="patientNew">➕ Naya patient (mic se banayein)</button>
+      <button class="secondary" id="patientClose">Band karein</button>
+    </div>
+  </div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   CONFIG & CONSTANTS
+   ===================================================================== */
+const SYSTEM_PROMPT = `You are VaidehaVoice, a voice companion for home caregivers in India. You speak and understand Hindi, Hinglish, Bhojpuri, Telugu, Marathi, and natural mixes of these languages.
+
+Your user is an untrained woman caring for sick or elderly relatives at home. She has no medical training. She is exhausted. She speaks to you mid-task — while cooking, while changing a dressing, while worried at 2am.
+
+YOUR RULES:
+1. Always respond in the same language the user spoke in. If she spoke Hindi, respond in Hindi. If she mixed Hindi and English, mix the same way back.
+2. Never say "consult a doctor" as your only answer. Give real, specific, actionable guidance first. Then mention a doctor only if the situation genuinely requires one.
+3. Never use medical jargon. Speak the way a knowledgeable, calm older sister would speak.
+4. Keep responses short — 2 to 4 sentences maximum. She is busy. She needs the answer fast.
+5. Always end with one of these: "Kuch aur poochna hai?" or "Aur koi cheez hai jo bataana chahti hain?" — so she knows you are still listening.
+6. If she describes a genuine emergency (chest pain, unconscious, severe bleeding, difficulty breathing), immediately say: "Yeh emergency hai. Abhi 108 par call karein." — nothing else first.
+7. You have memory of this household's patients. Use it. If she mentioned last time that her mother-in-law had knee surgery, remember that. Connect the dots for her.
+8. Never ask more than one question at a time. Never ask her to read anything, spell anything, or type anything.
+9. You are warm but not sentimental. You are calm but not robotic. You are like a trusted friend who happens to know medicine.
+
+RESPONSE FORMAT:
+- What you're seeing / what this sounds like (1 sentence)
+- What to do right now (1-2 sentences)  
+- What to watch for / when to escalate (1 sentence)
+- Closing question
+
+PATIENT CONTEXT will be provided at the start of each message in this format:
+[PATIENT: name, condition, medications, recent history]
+Use this context in every response.`;
+
+const STORAGE_KEY = "vaidehavoice_patients";
+const KEY_STORAGE = "vaidehavoice_api_key";
+const SESSION_KEY = "vaidehavoice_last_session";
+
+const EMERGENCY_WORDS = [
+  "behosh", "becahosh", "unconscious", "chest pain", "seene mein dard",
+  "saans nahi", "saanp nahi", "khoon bahut", "bahut khoon", "heavy bleeding",
+  "not breathing", "chal nahi raha", "hil nahi"
+];
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let currentPatient = null;          // patient object from storage
+let conversationHistory = [];       // [{role, content}] for Claude
+let sessionActive = false;
+let appState = "idle";              // idle | listening | processing | speaking
+let pendingSetupStep = null;        // null | "name" | "condition" | "meds"
+let recog = null;                   // SpeechRecognition instance
+let recogAvailable = true;
+let speechSupported = ("speechSynthesis" in window);
+
+/* =====================================================================
+   DOM
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+const micBtn = $("micBtn");
+const lastSpoken = $("lastSpoken");
+const logEl = $("log");
+const patientLabel = $("patientLabel");
+const footerInfo = $("footerInfo");
+const emergencyBanner = $("emergencyBanner");
+const textFallback = $("textFallback");
+const textInput = $("textInput");
+const textSend = $("textSend");
+
+function setState(s) {
+  appState = s;
+  document.body.className = "state-" + s + (sessionActive ? " session-active" : "");
+}
+
+/* =====================================================================
+   PATIENT MEMORY (localStorage)
+   ===================================================================== */
+function loadPatients() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { patients: [] };
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.patients)) data.patients = [];
+    return data;
+  } catch (e) {
+    return { patients: [] };
+  }
+}
+function savePatients(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function addHistoryNote(patient, note) {
+  if (!patient) return;
+  patient.recentHistory.push({ date: todayStr(), note: note });
+  if (patient.recentHistory.length > 20) patient.recentHistory = patient.recentHistory.slice(-20);
+  patient.lastUpdated = todayStr();
+  savePatients(loadPatients());
+}
+function findPatientByName(name) {
+  const data = loadPatients();
+  const n = name.trim().toLowerCase();
+  return data.patients.find(p =>
+    p.name.toLowerCase() === n ||
+    n.includes(p.name.toLowerCase()) ||
+    p.name.toLowerCase().includes(n)
+  ) || null;
+}
+function createPatient(name, relationship, conditions, medications) {
+  const data = loadPatients();
+  const p = {
+    id: "patient_" + (data.patients.length + 1) + "_" + Date.now(),
+    name: name,
+    relationship: relationship || "",
+    conditions: conditions || [],
+    medications: medications || [],
+    recentHistory: [],
+    lastUpdated: todayStr()
+  };
+  data.patients.push(p);
+  savePatients(data);
+  return p;
+}
+function updatePatientInStore(patient) {
+  const data = loadPatients();
+  const idx = data.patients.findIndex(p => p.id === patient.id);
+  if (idx >= 0) data.patients[idx] = patient;
+  savePatients(data);
+}
+function patientContextString(p) {
+  if (!p) return "[PATIENT: koi profile nahi]";
+  const recent = p.recentHistory.slice(-3).map(h => h.date + ": " + h.note).join(" | ") || "kuch nahi";
+  return `[PATIENT: ${p.name}${p.relationship ? " (" + p.relationship + ")" : ""}, conditions: ${p.conditions.join(", ") || "unknown"}, medications: ${p.medications.join(", ") || "unknown"}, recent: ${recent}]`;
+}
+
+/* =====================================================================
+   TEXT-TO-SPEECH
+   ===================================================================== */
+let hiVoice = null, enVoice = null;
+function pickVoices() {
+  if (!speechSupported) return;
+  const voices = speechSynthesis.getVoices();
+  hiVoice = voices.find(v => v.lang === "hi-IN") || null;
+  enVoice = voices.find(v => v.lang === "en-IN") || voices.find(v => /en[-_]IN/i.test(v.lang)) || null;
+}
+if (speechSupported) {
+  pickVoices();
+  speechSynthesis.onvoiceschanged = pickVoices;
+}
+
+function detectLang(text) {
+  return /[\u0900-\u097F]/.test(text) ? "hi" : "auto";
+}
+
+function speak(text, onDone) {
+  lastSpoken.textContent = '"' + text + '"';
+  logAI(text);
+  if (!speechSupported) { if (onDone) onDone(); return; }
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = hiVoice ? "hi-IN" : "en-IN";
+    u.rate = 0.95;
+    u.pitch = 1.0;
+    const v = hiVoice || enVoice;
+    if (v) u.voice = v;
+    const prev = appState;
+    setState("speaking");
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (onDone) onDone();
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    // safety timeout in case onend never fires (known Chrome bug)
+    setTimeout(finish, Math.max(4000, text.length * 120));
+    speechSynthesis.speak(u);
+  } catch (e) {
+    if (onDone) onDone();
+  }
+}
+
+/* =====================================================================
+   SPEECH RECOGNITION (Web Speech API)
+   ===================================================================== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) {
+  recogAvailable = false;
+  textFallback.style.display = "flex";
+}
+
+let silenceTimer = null;
+let finalTranscript = "";
+
+function startListening(autoProcess) {
+  if (!recogAvailable) {
+    textInput.focus();
+    return;
+  }
+  if (appState === "listening") return;
+  stopRecognition();
+  recog = new SR();
+  recog.lang = "hi-IN";
+  recog.continuous = false;
+  recog.interimResults = false;
+  recog.maxAlternatives = 1;
+
+  finalTranscript = "";
+  setState("listening");
+
+  recog.onresult = (ev) => {
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      if (ev.results[i].isFinal) {
+        finalTranscript += ev.results[i][0].transcript;
+      }
+    }
+    // 500ms debounce after result before processing
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      const txt = finalTranscript.trim();
+      if (txt && autoProcess !== false) handleUserSpeech(txt);
+    }, 500);
+  };
+
+  recog.onerror = (ev) => {
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+      recogAvailable = false;
+      textFallback.style.display = "flex";
+      speak("Mic uplabdh nahi hai. Aap neeche likh kar bhej sakti hain.", null);
+      setState("idle");
+    }
+    // "no-speech" / "aborted" — silently fall back to idle
+    if (appState === "listening") setState(sessionActive ? "idle" : "idle");
+  };
+
+  recog.onend = () => {
+    // handled via onresult debounce; nothing needed
+  };
+
+  try { recog.start(); } catch (e) {}
+}
+
+function stopRecognition() {
+  clearTimeout(silenceTimer);
+  if (recog) {
+    try { recog.onresult = null; recog.onerror = null; recog.onend = null; recog.abort(); } catch (e) {}
+    recog = null;
+  }
+}
+
+/* =====================================================================
+   CLAUDE API
+   ===================================================================== */
+async function callClaude(userText) {
+  const apiKey = localStorage.getItem(KEY_STORAGE);
+  if (!apiKey) { showKeyOverlay(); return null; }
+
+  const ctx = patientContextString(currentPatient);
+  const messages = conversationHistory.slice(-8); // keep last 8 turns
+  messages.push({ role: "user", content: ctx + "\n\n" + userText });
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: messages
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error("API error " + res.status);
+  }
+  const data = await res.json();
+  const text = (data.content || [])
+    .filter(b => b.type === "text")
+    .map(b => b.text)
+    .join(" ")
+    .trim();
+  conversationHistory.push({ role: "user", content: userText });
+  conversationHistory.push({ role: "assistant", content: text });
+  return text;
+}
+
+/* =====================================================================
+   SILENT MEMORY EXTRACTION (STEP 5)
+   Uses Claude to extract structured info from the exchange
+   ===================================================================== */
+async function extractMemory(userText, aiText) {
+  if (!currentPatient) return;
+  const apiKey = localStorage.getItem(KEY_STORAGE);
+  if (!apiKey) return;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 300,
+        system: `You extract caregiver notes. Given a conversation snippet between an Indian home caregiver and VaidehaVoice, output ONLY a valid JSON object: {"note": "<one short factual line about the patient's condition/symptom/medication change in English, or empty string if nothing medically notable>", "newCondition": "<condition mentioned for first time, or empty>", "newMedication": "<medication mentioned for first time, or empty>"}`,
+        messages: [{ role: "user", content: "Caregiver: " + userText + "\nAssistant: " + aiText }]
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const raw = (data.content || []).map(b => b.text || "").join("").trim();
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) return;
+    const obj = JSON.parse(m[0]);
+    let changed = false;
+    if (obj.note && obj.note.trim()) {
+      currentPatient.recentHistory.push({ date: todayStr(), note: obj.note.trim() });
+      changed = true;
+    }
+    if (obj.newCondition && obj.newCondition.trim() &&
+        !currentPatient.conditions.some(c => c.toLowerCase().includes(obj.newCondition.toLowerCase()))) {
+      currentPatient.conditions.push(obj.newCondition.trim());
+      changed = true;
+    }
+    if (obj.newMedication && obj.newMedication.trim() &&
+        !currentPatient.medications.some(c => c.toLowerCase().includes(obj.newMedication.toLowerCase()))) {
+      currentPatient.medications.push(obj.newMedication.trim());
+      changed = true;
+    }
+    if (changed) {
+      if (currentPatient.recentHistory.length > 20)
+        currentPatient.recentHistory = currentPatient.recentHistory.slice(-20);
+      currentPatient.lastUpdated = todayStr();
+      updatePatientInStore(currentPatient);
+      renderFooter();
+    }
+  } catch (e) { /* silent — memory extraction must never interrupt flow */ }
+}
+
+/* =====================================================================
+   EMERGENCY DETECTION
+   ===================================================================== */
+function isEmergency(text) {
+  const t = text.toLowerCase();
+  return EMERGENCY_WORDS.some(w => t.includes(w));
+}
+function triggerEmergency() {
+  document.body.classList.add("state-emergency");
+  emergencyBanner.style.display = "block";
+  setState("idle");
+  document.body.classList.add("state-emergency");
+  speak("Yeh emergency hai. Abhi 108 par call karein.", () => {
+    setTimeout(() => {
+      document.body.classList.remove("state-emergency");
+      emergencyBanner.style.display = "none";
+      if (sessionActive) startListening(true);
+    }, 1500);
+  });
+}
+
+/* =====================================================================
+   MAIN FLOW HANDLER
+   ===================================================================== */
+function handleUserSpeech(text) {
+  logUser(text);
+
+  // --- New patient setup questions ---
+  if (pendingSetupStep) {
+    handleSetupAnswer(text);
+    return;
+  }
+
+  // --- Emergency check BEFORE sending to Claude ---
+  if (isEmergency(text)) {
+    triggerEmergency();
+    if (currentPatient) addHistoryNote(currentPatient, todayStr() + " emergency words spoken: \"" + text.slice(0, 80) + "\"");
+    return;
+  }
+
+  // --- No patient yet? Try matching name ---
+  if (!currentPatient) {
+    const match = findPatientByName(text);
+    if (match) {
+      selectPatient(match);
+      speak("Haan, batayein. Kya ho raha hai?", () => startListening(true));
+      return;
+    }
+    // Not found — start voice profile creation
+    pendingSetupStep = "name";
+    speak(`Yeh naam store nahi mila. Kya aap unke baare mein kuch bata sakti hain? Unhe kya takleef hai?`, null);
+    setTimeout(() => startListening(true), 300);
+    return;
+  }
+
+  // --- Normal consultation ---
+  runConsultation(text);
+}
+
+async function runConsultation(text) {
+  setState("processing");
+  if (!navigator.onLine) {
+    speak("Internet nahi mil raha. Kripya connection check karein.", () => {
+      setState("idle");
+      if (sessionActive) setTimeout(() => startListening(true), 400);
+    });
+    return;
+  }
+  let reply = null;
+  try {
+    reply = await callClaude(text);
+  } catch (e) {
+    reply = null;
+  }
+  if (reply) {
+    // record simple note locally too (fallback if extraction fails)
+    speak(reply, () => {
+      extractMemory(text, reply); // silent, non-blocking
+      if (sessionActive) startListening(true);
+      else setState("idle");
+    });
+  } else {
+    speak("Mujhe abhi thodi takleef ho rahi hai. Kya aap dobara try kar sakti hain?", () => {
+      setState("idle");
+      if (sessionActive) setTimeout(() => startListening(true), 400);
+    });
+  }
+}
+
+/* --- Voice-driven new-patient setup (2-3 questions) --- */
+function handleSetupAnswer(text) {
+  if (pendingSetupStep === "name") {
+    // The answer here describes the problem; assume name was said earlier or infer
+    pendingSetupStep = "condition_confirm";
+    setupData.condition = text;
+    // try to grab a name from the original phrase
+    speak("Theek hai. Ab bataiye — yeh kaun hain? Jaise Mummy, Bauji, Dadi.", null);
+    setTimeout(() => startListening(true), 300);
+    return;
+  }
+  if (pendingSetupStep === "condition_confirm") {
+    const name = text.trim().split(/\s+/)[0];
+    pendingSetupStep = "meds";
+    setupData.name = name.charAt(0).toUpperCase() + name.slice(1);
+    speak("Dawaiyan kya chal rahi hain? Agar koi nahi, toh bas boliye koi dawai nahi.", null);
+    setTimeout(() => startListening(true), 300);
+    return;
+  }
+  if (pendingSetupStep === "meds") {
+    const meds = (/koi dawai nahi|dawai nahi|nahi hai/.test(text.toLowerCase()))
+      ? [] : [text.trim()];
+    const p = createPatient(setupData.name, "", [setupData.condition], meds);
+    addHistoryNote(p, "Profile created by voice: " + setupData.condition.slice(0, 100));
+    selectPatient(p);
+    pendingSetupStep = null;
+    setupData = {};
+    speak("Ho gaya. " + p.name + " ka profile ban gaya. Haan, batayein. Kya ho raha hai?", () => startListening(true));
+    return;
+  }
+}
+let setupData = {};
+
+/* =====================================================================
+   UI HELPERS
+   ===================================================================== */
+function logUser(text) { addLog(text, "user"); }
+function logAI(text)   { addLog(text, "ai"); }
+function addLog(text, cls) {
+  const div = document.createElement("div");
+  div.className = "logEntry " + cls;
+  div.textContent = text;
+  logEl.prepend(div);
+  while (logEl.children.length > 8) logEl.removeChild(logEl.lastChild); // last 4 exchanges
+}
+
+function selectPatient(p) {
+  currentPatient = p;
+  conversationHistory = [];
+  sessionActive = true;
+  document.body.classList.add("session-active");
+  patientLabel.textContent = p.name + " ke baare mein";
+  localStorage.setItem("vaidehavoice_current_patient", p.id);
+  renderFooter();
+}
+
+function renderFooter() {
+  const last = localStorage.getItem(SESSION_KEY);
+  if (currentPatient && currentPatient.recentHistory.length) {
+    const h = currentPatient.recentHistory[currentPatient.recentHistory.length - 1];
+    footerInfo.textContent = "Pichli baat: " + formatDate(h.date) + " — " + h.note.slice(0, 60);
+  } else if (last) {
+    footerInfo.textContent = "Pichli baat: " + formatDate(last);
+  } else {
+    footerInfo.textContent = "Pichli baat: aaj pehli baar";
+  }
+}
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  } catch (e) { return iso; }
+}
+
+/* =====================================================================
+   OVERLAYS
+   ===================================================================== */
+function showKeyOverlay() { $("keyOverlay").classList.add("show"); }
+$("apiKeySave").addEventListener("click", () => {
+  const k = $("apiKeyInput").value.trim();
+  if (!k) return;
+  localStorage.setItem(KEY_STORAGE, k);
+  $("keyOverlay").classList.remove("show");
+  speak("Namaste. Main VaidehaVoice hoon. Aap kis ke baare mein baat karna chahti hain?", () => startListening(true));
+});
+
+function showPatientOverlay() {
+  const chips = $("patientChips");
+  chips.innerHTML = "";
+  const data = loadPatients();
+  if (!data.patients.length) {
+    chips.innerHTML = '<p style="font-size:14px;color:var(--text-secondary)">Abhi koi patient nahi. Naya patient mic se banayein.</p>';
+  }
+  data.patients.forEach(p => {
+    const c = document.createElement("span");
+    c.className = "patientChip";
+    c.textContent = p.name;
+    c.addEventListener("click", () => {
+      $("patientOverlay").classList.remove("show");
+      selectPatient(p);
+      speak("Haan, batayein. Kya ho raha hai?", () => startListening(true));
+    });
+    chips.appendChild(c);
+  });
+  $("patientOverlay").classList.add("show");
+}
+$("patientClose").addEventListener("click", () => $("patientOverlay").classList.remove("show"));
+$("patientNew").addEventListener("click", () => {
+  $("patientOverlay").classList.remove("show");
+  currentPatient = null;
+  sessionActive = true;
+  document.body.classList.add("session-active");
+  patientLabel.textContent = "Naya patient";
+  speak("Theek hai. Bataiye — patient kaun hain aur unhe kya takleef hai?", () => {
+    pendingSetupStep = "name";
+    startListening(true);
+  });
+});
+patientLabel.addEventListener("click", showPatientOverlay);
+
+/* =====================================================================
+   BUTTON WIRING
+   ===================================================================== */
+micBtn.addEventListener("click", () => {
+  if (appState === "listening") { stopRecognition(); setState("idle"); return; }
+  if (appState === "processing" || appState === "speaking") return;
+  if (!localStorage.getItem(KEY_STORAGE)) { showKeyOverlay(); return; }
+  if (!sessionActive) {
+    speak("Ji boliye, main sun rahi hoon.", () => startListening(true));
+  } else {
+    startListening(true);
+  }
+});
+
+$("endSession").addEventListener("click", () => {
+  stopRecognition();
+  sessionActive = false;
+  pendingSetupStep = null;
+  document.body.classList.remove("session-active");
+  localStorage.setItem(SESSION_KEY, todayStr());
+  setState("idle");
+  speak("Theek hai. Jab zaroorat ho, mic daba kar boliye. Main yahan hoon.", null);
+});
+
+/* Text fallback */
+function sendText() {
+  const t = textInput.value.trim();
+  if (!t) return;
+  textInput.value = "";
+  handleUserSpeech(t);
+}
+textSend.addEventListener("click", sendText);
+textInput.addEventListener("keydown", e => { if (e.key === "Enter") sendText(); });
+
+/* =====================================================================
+   STARTUP
+   ===================================================================== */
+function init() {
+  renderFooter();
+  // restore last-selected patient (memory persists across sessions)
+  const pid = localStorage.getItem("vaidehavoice_current_patient");
+  if (pid) {
+    const p = loadPatients().patients.find(x => x.id === pid);
+    if (p) {
+      currentPatient = p;
+      patientLabel.textContent = p.name + " ke baare mein";
+    }
+  }
+  if (!localStorage.getItem(KEY_STORAGE)) {
+    showKeyOverlay();
+  } else {
+    // First greeting — spoken on first user interaction (browser autoplay policy)
+    const greetOnce = () => {
+      speak("Namaste. Main VaidehaVoice hoon. Aap kis ke baare mein baat karna chahti hain?", () => {
+        startListening(true);
+      });
+      document.removeEventListener("click", greetOnce);
+    };
+    document.addEventListener("click", greetOnce, { once: true });
+    lastSpoken.textContent = '"Namaste. Mic dabaakar boliye."';
+  }
+  setState("idle");
+}
+init();
+</script>
+</body>
+</html>
